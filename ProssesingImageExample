@@ -1,0 +1,65 @@
+%Clearing all variables, figures, and the Command Window
+clear all;
+close all;
+clc;
+delete(gcp('nocreate'))
+
+% Get the directory path from the user selection and the
+% list of files in that directory
+folder_name = uigetdir();
+cd(strcat(folder_name,'/'));
+listing = dir();
+mkdir(strcat(folder_name,'/', 'Data'));
+mkdir(strcat(folder_name,'/', 'Labels'));
+
+% Start a for loop through each file in the directory
+for n=1:length(listing)
+    %    Use regexp to check if there are filenames with .xlsx
+    %    in the name
+    if regexp((listing(n,1).name), '.tif')
+        
+        tic
+        
+        %set image stack
+        GreenImage = imread(strcat(folder_name,'/', listing(n,1).name), 1);
+        TMREImage = imread(strcat(folder_name, '/', listing(n,1).name), 1);
+        
+        %set number of sqrt(bin)
+        bin = 2;
+        
+        lw = floor(size(GreenImage)/bin);
+        
+        coor = zeros(bin^2, 5);
+        
+        coor(1:(bin^2), 1) = repelem((0:(bin-1))*lw(1)+1, bin);
+        coor(1:(bin^2), 2) = repelem((1:(bin))*lw(1), bin);
+        coor(1:(bin^2), 3) = repmat(((0:(bin-1))*lw(1)+1)', bin, 1);
+        coor(1:(bin^2), 4) = repmat(((1:(bin))*lw(1))', bin, 1);
+        
+        parpool(12)
+        
+        parfor i = 1:(bin^2) 
+            
+            image = listing(n,1).name;
+            Green = GreenImage(coor(i,1):coor(i,2), coor(i,3):coor(i,4));
+            Red = TMREImage(coor(i,1):coor(i,2), coor(i,3):coor(i,4));
+            
+            [BW, Labels, stats] = MitoMeasurementsTMRE(image, Green, Red);
+            
+            imwrite(Labels, strcat(folder_name, '/', 'Labels', '/', 'Labels', '_', listing(n,1).name, '_', num2str(i), '.tif'));
+            
+            writetable(stats, strcat(folder_name, '/', 'Data', '/', listing(n,1).name, '_', num2str(i), '.txt'));
+        
+        end
+        
+        delete(gcp('nocreate'))
+        
+        toc
+        
+    else
+        
+    end
+    
+end
+
+cd(strcat(folder_name,'/'));
